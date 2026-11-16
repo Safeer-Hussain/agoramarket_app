@@ -5,6 +5,7 @@ import '../../core/utils/app_feedback.dart';
 import '../../core/utils/currency_converter.dart';
 import '../../domain/entities/user_profile.dart';
 import '../../domain/entities/video_pitch.dart';
+import '../booking/talent_booking_modal.dart';
 import 'profile_provider.dart';
 import 'widgets/add_portfolio_modal.dart';
 import 'widgets/currency_hedging_modal.dart';
@@ -48,6 +49,18 @@ class UserProfileView extends StatelessWidget {
               ),
             ),
             actions: [
+              IconButton(
+                icon: const Icon(Icons.calendar_month_rounded, size: 20),
+                tooltip: 'Book Consultation & Schedule',
+                onPressed: () {
+                  TalentBookingModal.show(
+                    context,
+                    creatorId: profile.id,
+                    creatorName: profile.name,
+                    hourlyRate: profile.hourlyRate,
+                  );
+                },
+              ),
               IconButton(
                 icon: const Icon(Icons.currency_exchange_rounded, size: 20),
                 tooltip: 'FX Hedging & Currency Calculator',
@@ -375,6 +388,33 @@ class UserProfileView extends StatelessWidget {
                   ),
                 ),
               ],
+            ),
+          ),
+          const SizedBox(height: 12),
+
+          // Book Consultation Button
+          SizedBox(
+            width: double.infinity,
+            height: 38,
+            child: FilledButton.tonalIcon(
+              style: FilledButton.styleFrom(
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(10),
+                ),
+              ),
+              icon: const Icon(Icons.calendar_month_rounded, size: 16),
+              label: const Text(
+                'Schedule 1:1 Consultation Session',
+                style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
+              ),
+              onPressed: () {
+                TalentBookingModal.show(
+                  context,
+                  creatorId: profile.id,
+                  creatorName: profile.name,
+                  hourlyRate: profile.hourlyRate,
+                );
+              },
             ),
           ),
           const SizedBox(height: 12),

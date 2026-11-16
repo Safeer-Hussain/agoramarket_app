@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 
 import '../../../core/utils/app_feedback.dart';
 import '../../../domain/entities/video_pitch.dart';
+import '../../booking/talent_booking_modal.dart';
 import '../../chat/chat_provider.dart';
 
 class HireModal extends StatefulWidget {
@@ -294,6 +295,36 @@ class _HireModalState extends State<HireModal> {
                       label: const Text(
                         'Dispatch Contract Offer',
                         style: TextStyle(fontWeight: FontWeight.w700),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 10),
+                  SizedBox(
+                    width: double.infinity,
+                    height: 44,
+                    child: OutlinedButton.icon(
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: colorScheme.secondary,
+                        side: BorderSide(
+                          color: colorScheme.secondary.withValues(alpha: 0.5),
+                        ),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                      ),
+                      onPressed: () {
+                        Navigator.of(context).pop();
+                        TalentBookingModal.show(
+                          context,
+                          creatorId: widget.pitch.id,
+                          creatorName: widget.pitch.creatorName,
+                          hourlyRate: widget.pitch.hourlyRate,
+                        );
+                      },
+                      icon: const Icon(Icons.calendar_month_rounded, size: 18),
+                      label: const Text(
+                        'Book Consultation Calendar Slot',
+                        style: TextStyle(fontWeight: FontWeight.w600),
                       ),
                     ),
                   ),

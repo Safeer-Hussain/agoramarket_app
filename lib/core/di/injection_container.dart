@@ -8,9 +8,11 @@ import '../performance/render_latency_monitor.dart';
 import '../../domain/repositories/marketplace_repository.dart';
 import '../../domain/repositories/chat_repository.dart';
 import '../../domain/repositories/profile_repository.dart';
+import '../../domain/repositories/booking_repository.dart';
 import '../../data/repositories/marketplace_repository_impl.dart';
 import '../../data/repositories/chat_repository_impl.dart';
 import '../../data/repositories/profile_repository_impl.dart';
+import '../../data/repositories/booking_repository_impl.dart';
 
 final sl = GetIt.instance;
 
@@ -60,6 +62,12 @@ Future<void> initDependencies({SharedPreferences? mockPrefs}) async {
   if (!sl.isRegistered<ProfileRepository>()) {
     sl.registerLazySingleton<ProfileRepository>(
       () => ProfileRepositoryImpl(database: sl(), prefs: sl()),
+    );
+  }
+
+  if (!sl.isRegistered<BookingRepository>()) {
+    sl.registerLazySingleton<BookingRepository>(
+      () => BookingRepositoryImpl(database: sl()),
     );
   }
 }

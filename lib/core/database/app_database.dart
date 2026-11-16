@@ -5,6 +5,7 @@ import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 
+import '../../domain/entities/talent_booking.dart';
 import '../constants/app_constants.dart';
 
 class AppDatabase {
@@ -63,6 +64,24 @@ class AppDatabase {
         resolution_notes TEXT NOT NULL,
         created_at TEXT NOT NULL,
         resolved_at TEXT
+      )
+    ''');
+
+    await db.execute('''
+      CREATE TABLE IF NOT EXISTS talent_bookings (
+        id TEXT PRIMARY KEY,
+        creator_id TEXT NOT NULL,
+        creator_name TEXT NOT NULL,
+        client_name TEXT NOT NULL,
+        consultation_type TEXT NOT NULL,
+        booking_date TEXT NOT NULL,
+        start_time TEXT NOT NULL,
+        duration_minutes INTEGER NOT NULL,
+        rate_per_hour REAL NOT NULL,
+        total_price REAL NOT NULL,
+        status TEXT NOT NULL,
+        notes TEXT NOT NULL,
+        created_at TEXT NOT NULL
       )
     ''');
   }
@@ -187,6 +206,24 @@ class AppDatabase {
         resolution_notes TEXT NOT NULL,
         created_at TEXT NOT NULL,
         resolved_at TEXT
+      )
+    ''');
+
+    await db.execute('''
+      CREATE TABLE talent_bookings (
+        id TEXT PRIMARY KEY,
+        creator_id TEXT NOT NULL,
+        creator_name TEXT NOT NULL,
+        client_name TEXT NOT NULL,
+        consultation_type TEXT NOT NULL,
+        booking_date TEXT NOT NULL,
+        start_time TEXT NOT NULL,
+        duration_minutes INTEGER NOT NULL,
+        rate_per_hour REAL NOT NULL,
+        total_price REAL NOT NULL,
+        status TEXT NOT NULL,
+        notes TEXT NOT NULL,
+        created_at TEXT NOT NULL
       )
     ''');
 
@@ -464,6 +501,115 @@ class AppDatabase {
     for (final m in messages) {
       await db.insert('chat_messages', m);
     }
+
+    // 7. Seed Initial Talent Bookings
+    final tomorrow = DateTime.now().add(const Duration(days: 1));
+    final tomorrowStr =
+        '${tomorrow.year}-${tomorrow.month.toString().padLeft(2, '0')}-${tomorrow.day.toString().padLeft(2, '0')}';
+    final afterTomorrow = DateTime.now().add(const Duration(days: 2));
+    final afterTomorrowStr =
+        '${afterTomorrow.year}-${afterTomorrow.month.toString().padLeft(2, '0')}-${afterTomorrow.day.toString().padLeft(2, '0')}';
+
+    final sampleBookings = [
+      {
+        'id': 'booking_seed_001',
+        'creator_id': 'user_safeer_001',
+        'creator_name': 'Safeer Hussain',
+        'client_name': 'Ayesha Khan',
+        'consultation_type': '1:1 Architecture Review',
+        'booking_date': tomorrowStr,
+        'start_time': '10:00',
+        'duration_minutes': 60,
+        'rate_per_hour': 95.0,
+        'total_price': 95.0,
+        'status': 'CONFIRMED',
+        'notes': 'Deep dive into sub-second vertical video caching.',
+        'created_at': now,
+      },
+      {
+        'id': 'booking_seed_002',
+        'creator_id': 'user_safeer_001',
+        'creator_name': 'Safeer Hussain',
+        'client_name': 'Tech Lead (Fintech Corp)',
+        'consultation_type': 'Milestone Technical Audit',
+        'booking_date': afterTomorrowStr,
+        'start_time': '14:00',
+        'duration_minutes': 90,
+        'rate_per_hour': 95.0,
+        'total_price': 142.5,
+        'status': 'CONFIRMED',
+        'notes': 'Offline SQLite spatial query verification.',
+        'created_at': now,
+      },
+    ];
+    for (final b in sampleBookings) {
+      await db.insert('talent_bookings', b);
+    }
+  }
+
+  // ==========================================
+  // TALENT BOOKINGS & SCHEDULER QUERIES
+  // ==========================================
+
+  Future<List<TalentBooking>> getBookingsForCreator(String creatorId) async {
+    final db = await database;
+    final results = await db.query(
+      'talent_bookings',
+      where: 'creator_id = ? OR creator_name = ?',
+      whereArgs: [creatorId, creatorId],
+      orderBy: 'booking_date ASC, start_time ASC',
+    );
+    return results.map((m) => TalentBooking.fromMap(m)).toList();
+  }
+
+  Future<List<TalentBooking>> getBookingsForDate(
+    String creatorId,
+    String bookingDate,
+  ) async {
+    final db = await database;
+    final results = await db.query(
+      'talent_bookings',
+      where: '(creator_id = ? OR creator_name = ?) AND booking_date = ? AND status != ?',
+      whereArgs: [creatorId, creatorId, bookingDate, 'CANCELLED'],
+      orderBy: 'start_time ASC',
+    );
+    return results.map((m) => TalentBooking.fromMap(m)).toList();
+  }
+
+  Future<int> insertBooking(TalentBooking booking) async {
+    final db = await database;
+    return await db.insert(
+      'talent_bookings',
+      booking.toMap(),
+      conflictAlgorithm: ConflictAlgorithm.replace,
+    );
+  }
+
+  Future<int> updateBookingStatus(String bookingId, String status) async {
+    final db = await database;
+    return await db.update(
+      'talent_bookings',
+      {'status': status},
+      where: 'id = ?',
+      whereArgs: [bookingId],
+    );
+  }
+
+  Future<bool> hasBookingConflict({
+    required String creatorId,
+    required String bookingDate,
+    required String startTime,
+    required int durationMinutes,
+    String? excludeBookingId,
+  }) async {
+    final existing = await getBookingsForDate(creatorId, bookingDate);
+    for (final booking in existing) {
+      if (excludeBookingId != null && booking.id == excludeBookingId) continue;
+      if (booking.overlaps(startTime, durationMinutes)) {
+        return true;
+      }
+    }
+    return false;
   }
 
   Future<void> resetDatabase() async {
@@ -475,6 +621,8 @@ class AppDatabase {
     await db.delete('contract_offers');
     await db.delete('user_profile');
     await db.delete('portfolio_items');
+    await db.delete('escrow_disputes');
+    await db.delete('talent_bookings');
     await _seedInitialData(db);
   }
 }

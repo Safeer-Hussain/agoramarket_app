@@ -1,7 +1,9 @@
 import 'package:agora_market_app/domain/entities/chat_entities.dart';
 import 'package:agora_market_app/domain/entities/comment.dart';
+import 'package:agora_market_app/domain/entities/talent_booking.dart';
 import 'package:agora_market_app/domain/entities/user_profile.dart';
 import 'package:agora_market_app/domain/entities/video_pitch.dart';
+import 'package:agora_market_app/domain/repositories/booking_repository.dart';
 import 'package:agora_market_app/domain/repositories/chat_repository.dart';
 import 'package:agora_market_app/domain/repositories/marketplace_repository.dart';
 import 'package:agora_market_app/domain/repositories/profile_repository.dart';
@@ -342,5 +344,89 @@ class MockProfileRepository implements ProfileRepository {
   @override
   Future<void> addPortfolioItem(PortfolioItem item) async {
     portfolio.insert(0, item);
+  }
+}
+
+class MockBookingRepository implements BookingRepository {
+  List<TalentBooking> bookings = [];
+
+  MockBookingRepository() {
+    final tomorrow = DateTime.now().add(const Duration(days: 1));
+    final tomorrowStr =
+        '${tomorrow.year}-${tomorrow.month.toString().padLeft(2, '0')}-${tomorrow.day.toString().padLeft(2, '0')}';
+
+    bookings = [
+      TalentBooking(
+        id: 'mock_b_01',
+        creatorId: 'user_safeer_001',
+        creatorName: 'Safeer Hussain',
+        clientName: 'Ayesha Khan',
+        consultationType: '1:1 Architecture Review',
+        bookingDate: tomorrowStr,
+        startTime: '10:00',
+        durationMinutes: 60,
+        ratePerHour: 95.0,
+        totalPrice: 95.0,
+        status: 'CONFIRMED',
+        notes: 'Mock architecture review session',
+        createdAt: '2026-11-16T10:00:00Z',
+      ),
+    ];
+  }
+
+  @override
+  Future<List<TalentBooking>> getBookingsForCreator(String creatorId) async {
+    return bookings
+        .where((b) => b.creatorId == creatorId || b.creatorName == creatorId)
+        .toList();
+  }
+
+  @override
+  Future<List<TalentBooking>> getBookingsForDate(
+    String creatorId,
+    String bookingDate,
+  ) async {
+    return bookings
+        .where(
+          (b) =>
+              (b.creatorId == creatorId || b.creatorName == creatorId) &&
+              b.bookingDate == bookingDate &&
+              b.status != 'CANCELLED',
+        )
+        .toList();
+  }
+
+  @override
+  Future<bool> createBooking(TalentBooking booking) async {
+    bookings.add(booking);
+    return true;
+  }
+
+  @override
+  Future<bool> cancelBooking(String bookingId) async {
+    final idx = bookings.indexWhere((b) => b.id == bookingId);
+    if (idx != -1) {
+      bookings[idx] = bookings[idx].copyWith(status: 'CANCELLED');
+      return true;
+    }
+    return false;
+  }
+
+  @override
+  Future<bool> hasConflict({
+    required String creatorId,
+    required String bookingDate,
+    required String startTime,
+    required int durationMinutes,
+    String? excludeBookingId,
+  }) async {
+    final dayBookings = await getBookingsForDate(creatorId, bookingDate);
+    for (final b in dayBookings) {
+      if (excludeBookingId != null && b.id == excludeBookingId) continue;
+      if (b.overlaps(startTime, durationMinutes)) {
+        return true;
+      }
+    }
+    return false;
   }
 }

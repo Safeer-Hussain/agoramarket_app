@@ -169,7 +169,7 @@
 - Build interactive `CurrencyHedgingCalculator` in Profile showing estimated FX volatility and payout projections.
 - Deliverable: Reactive multi-currency switcher updating all feed cards, proposal modals, and invoices.
 
-### [ ] Sprint 28: Interactive Talent Availability Scheduler & Booking Calendar
+### [x] Sprint 28: Interactive Talent Availability Scheduler & Booking Calendar
 - Implement SQLite table `talent_bookings` with time slots, consultation types, and duration.
 - Build custom canvas month/week calendar view with touch selection and conflict detection.
 - Deliverable: Offline appointment booking engine with instant message thread notification.

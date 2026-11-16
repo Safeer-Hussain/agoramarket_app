@@ -9,6 +9,7 @@ import 'core/di/injection_container.dart';
 import 'core/performance/render_latency_monitor.dart';
 import 'core/theme/app_theme.dart';
 import 'core/theme/theme_provider.dart';
+import 'presentation/booking/booking_provider.dart';
 import 'presentation/chat/chat_provider.dart';
 import 'presentation/concierge/ai_concierge_provider.dart';
 import 'presentation/feed/video_feed_provider.dart';
@@ -75,6 +76,10 @@ void main() {
                 marketplaceRepository: sl(),
                 prefs: prefs,
               ),
+            ),
+            ChangeNotifierProvider(
+              create: (_) =>
+                  BookingProvider(repository: sl(), chatRepository: sl()),
             ),
           ],
           child: const AgoraMarketApp(),
