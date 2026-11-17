@@ -1,5 +1,7 @@
+import 'package:agora_market_app/domain/entities/bookmark_folder.dart';
 import 'package:agora_market_app/domain/entities/chat_entities.dart';
 import 'package:agora_market_app/domain/entities/comment.dart';
+import 'package:agora_market_app/domain/entities/pitch_bookmark.dart';
 import 'package:agora_market_app/domain/entities/talent_booking.dart';
 import 'package:agora_market_app/domain/entities/user_profile.dart';
 import 'package:agora_market_app/domain/entities/video_pitch.dart';
@@ -173,6 +175,100 @@ class MockMarketplaceRepository implements MarketplaceRepository {
       }
       return true;
     }).toList();
+  }
+
+  List<BookmarkFolder> folders = [
+    const BookmarkFolder(
+      id: 'folder_mobile',
+      name: 'Mobile Architects',
+      description: 'Mobile specialists',
+      iconName: 'code',
+      sortOrder: 0,
+      createdAt: '2026-11-06T00:00:00Z',
+      pitchCount: 1,
+    ),
+    const BookmarkFolder(
+      id: 'folder_fintech',
+      name: 'Fintech & Escrow Experts',
+      description: 'Fintech specialists',
+      iconName: 'payments',
+      sortOrder: 1,
+      createdAt: '2026-11-06T00:00:00Z',
+      pitchCount: 0,
+    ),
+  ];
+
+  List<PitchBookmark> bookmarks = [
+    const PitchBookmark(
+      id: 'bm_001',
+      folderId: 'folder_mobile',
+      pitchId: 'pitch_test_01',
+      tags: ['Mobile', 'Flutter', 'Performance'],
+      notes: 'Initial test bookmark',
+      savedAt: '2026-11-06T00:00:00Z',
+    ),
+  ];
+
+  @override
+  Future<List<BookmarkFolder>> getBookmarkFolders() async {
+    return folders.map((f) {
+      final count = bookmarks.where((b) => b.folderId == f.id).length;
+      return f.copyWith(pitchCount: count);
+    }).toList();
+  }
+
+  @override
+  Future<void> createBookmarkFolder(BookmarkFolder folder) async {
+    folders.add(folder);
+  }
+
+  @override
+  Future<void> updateBookmarkFolderOrder(List<String> folderIdsInOrder) async {
+    folders.sort(
+      (a, b) => folderIdsInOrder
+          .indexOf(a.id)
+          .compareTo(folderIdsInOrder.indexOf(b.id)),
+    );
+  }
+
+  @override
+  Future<void> deleteBookmarkFolder(String folderId) async {
+    folders.removeWhere((f) => f.id == folderId);
+    bookmarks.removeWhere((b) => b.folderId == folderId);
+  }
+
+  @override
+  Future<List<PitchBookmark>> getBookmarksForFolder(String folderId) async {
+    return bookmarks.where((b) => b.folderId == folderId).toList();
+  }
+
+  @override
+  Future<List<PitchBookmark>> getAllBookmarks() async {
+    return List.from(bookmarks);
+  }
+
+  @override
+  Future<void> savePitchToFolder(PitchBookmark bookmark) async {
+    bookmarks.removeWhere(
+      (b) => b.folderId == bookmark.folderId && b.pitchId == bookmark.pitchId,
+    );
+    bookmarks.insert(0, bookmark);
+  }
+
+  @override
+  Future<void> removePitchFromFolder(String pitchId, String folderId) async {
+    bookmarks.removeWhere(
+      (b) => b.pitchId == pitchId && b.folderId == folderId,
+    );
+  }
+
+  @override
+  Future<List<String>> getFoldersForPitch(String pitchId) async {
+    return bookmarks
+        .where((b) => b.pitchId == pitchId)
+        .map((b) => b.folderId)
+        .toSet()
+        .toList();
   }
 }
 

@@ -1,6 +1,8 @@
 import 'package:latlong2/latlong.dart';
 
 import '../../core/database/app_database.dart';
+import '../../domain/entities/bookmark_folder.dart';
+import '../../domain/entities/pitch_bookmark.dart';
 import '../../domain/entities/video_pitch.dart';
 import '../../domain/entities/comment.dart';
 import '../../domain/repositories/marketplace_repository.dart';
@@ -146,5 +148,50 @@ class MarketplaceRepositoryImpl implements MarketplaceRepository {
 
       return true;
     }).toList();
+  }
+
+  @override
+  Future<List<BookmarkFolder>> getBookmarkFolders() async {
+    return await _database.getBookmarkFolders();
+  }
+
+  @override
+  Future<void> createBookmarkFolder(BookmarkFolder folder) async {
+    await _database.insertBookmarkFolder(folder);
+  }
+
+  @override
+  Future<void> updateBookmarkFolderOrder(List<String> folderIdsInOrder) async {
+    await _database.updateBookmarkFolderOrder(folderIdsInOrder);
+  }
+
+  @override
+  Future<void> deleteBookmarkFolder(String folderId) async {
+    await _database.deleteBookmarkFolder(folderId);
+  }
+
+  @override
+  Future<List<PitchBookmark>> getBookmarksForFolder(String folderId) async {
+    return await _database.getBookmarksForFolder(folderId);
+  }
+
+  @override
+  Future<List<PitchBookmark>> getAllBookmarks() async {
+    return await _database.getAllBookmarks();
+  }
+
+  @override
+  Future<void> savePitchToFolder(PitchBookmark bookmark) async {
+    await _database.savePitchToFolder(bookmark);
+  }
+
+  @override
+  Future<void> removePitchFromFolder(String pitchId, String folderId) async {
+    await _database.removePitchFromFolder(pitchId, folderId);
+  }
+
+  @override
+  Future<List<String>> getFoldersForPitch(String pitchId) async {
+    return await _database.getFoldersForPitch(pitchId);
   }
 }

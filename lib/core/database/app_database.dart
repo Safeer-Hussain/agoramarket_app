@@ -5,6 +5,8 @@ import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 
+import '../../domain/entities/bookmark_folder.dart';
+import '../../domain/entities/pitch_bookmark.dart';
 import '../../domain/entities/talent_booking.dart';
 import '../constants/app_constants.dart';
 
@@ -82,6 +84,28 @@ class AppDatabase {
         status TEXT NOT NULL,
         notes TEXT NOT NULL,
         created_at TEXT NOT NULL
+      )
+    ''');
+
+    await db.execute('''
+      CREATE TABLE IF NOT EXISTS bookmark_folders (
+        id TEXT PRIMARY KEY,
+        name TEXT NOT NULL,
+        description TEXT NOT NULL,
+        icon_name TEXT NOT NULL,
+        sort_order INTEGER NOT NULL,
+        created_at TEXT NOT NULL
+      )
+    ''');
+
+    await db.execute('''
+      CREATE TABLE IF NOT EXISTS pitch_bookmarks (
+        id TEXT PRIMARY KEY,
+        folder_id TEXT NOT NULL,
+        pitch_id TEXT NOT NULL,
+        tags TEXT NOT NULL,
+        notes TEXT NOT NULL,
+        saved_at TEXT NOT NULL
       )
     ''');
   }
@@ -224,6 +248,28 @@ class AppDatabase {
         status TEXT NOT NULL,
         notes TEXT NOT NULL,
         created_at TEXT NOT NULL
+      )
+    ''');
+
+    await db.execute('''
+      CREATE TABLE bookmark_folders (
+        id TEXT PRIMARY KEY,
+        name TEXT NOT NULL,
+        description TEXT NOT NULL,
+        icon_name TEXT NOT NULL,
+        sort_order INTEGER NOT NULL,
+        created_at TEXT NOT NULL
+      )
+    ''');
+
+    await db.execute('''
+      CREATE TABLE pitch_bookmarks (
+        id TEXT PRIMARY KEY,
+        folder_id TEXT NOT NULL,
+        pitch_id TEXT NOT NULL,
+        tags TEXT NOT NULL,
+        notes TEXT NOT NULL,
+        saved_at TEXT NOT NULL
       )
     ''');
 
@@ -545,6 +591,62 @@ class AppDatabase {
     for (final b in sampleBookings) {
       await db.insert('talent_bookings', b);
     }
+
+    // 8. Seed Bookmark Folders & Pitch Bookmarks
+    final initialFolders = [
+      {
+        'id': 'folder_mobile',
+        'name': 'Mobile Architects',
+        'description':
+            'High-performance mobile, Flutter, and rendering specialists',
+        'icon_name': 'code',
+        'sort_order': 0,
+        'created_at': now,
+      },
+      {
+        'id': 'folder_fintech',
+        'name': 'Fintech & Escrow Experts',
+        'description':
+            'Smart contracts, payment rails, and currency hedging leads',
+        'icon_name': 'payments',
+        'sort_order': 1,
+        'created_at': now,
+      },
+      {
+        'id': 'folder_systems',
+        'name': 'Backend & Systems Leads',
+        'description':
+            'Distributed systems, low-latency microservices, and databases',
+        'icon_name': 'terminal',
+        'sort_order': 2,
+        'created_at': now,
+      },
+    ];
+    for (final f in initialFolders) {
+      await db.insert('bookmark_folders', f);
+    }
+
+    final initialBookmarks = [
+      {
+        'id': 'bm_001',
+        'folder_id': 'folder_mobile',
+        'pitch_id': 'pitch_001',
+        'tags': 'Mobile,Flutter,Performance,120FPS',
+        'notes': 'Safeer Hussain 120 FPS video pipeline architecture.',
+        'saved_at': now,
+      },
+      {
+        'id': 'bm_002',
+        'folder_id': 'folder_fintech',
+        'pitch_id': 'pitch_002',
+        'tags': 'Design Systems,Fintech,WCAG',
+        'notes': 'Ayesha Khan scalable design tokens architecture.',
+        'saved_at': now,
+      },
+    ];
+    for (final b in initialBookmarks) {
+      await db.insert('pitch_bookmarks', b);
+    }
   }
 
   // ==========================================
@@ -612,6 +714,138 @@ class AppDatabase {
     return false;
   }
 
+  // ==========================================
+  // BOOKMARK COLLECTIONS & TAXONOMY QUERIES
+  // ==========================================
+
+  Future<List<BookmarkFolder>> getBookmarkFolders() async {
+    final db = await database;
+    final folders = await db.query(
+      'bookmark_folders',
+      orderBy: 'sort_order ASC',
+    );
+    final results = <BookmarkFolder>[];
+
+    for (final f in folders) {
+      final folderId = f['id'] as String;
+      final countResult = await db.rawQuery(
+        'SELECT COUNT(*) as count FROM pitch_bookmarks WHERE folder_id = ?',
+        [folderId],
+      );
+      final count = (countResult.first['count'] as num?)?.toInt() ?? 0;
+      results.add(BookmarkFolder.fromMap(f, pitchCount: count));
+    }
+    return results;
+  }
+
+  Future<int> insertBookmarkFolder(BookmarkFolder folder) async {
+    final db = await database;
+    return await db.insert(
+      'bookmark_folders',
+      folder.toMap(),
+      conflictAlgorithm: ConflictAlgorithm.replace,
+    );
+  }
+
+  Future<int> updateBookmarkFolder(BookmarkFolder folder) async {
+    final db = await database;
+    return await db.update(
+      'bookmark_folders',
+      folder.toMap(),
+      where: 'id = ?',
+      whereArgs: [folder.id],
+    );
+  }
+
+  Future<void> updateBookmarkFolderOrder(List<String> folderIdsInOrder) async {
+    final db = await database;
+    final batch = db.batch();
+    for (int i = 0; i < folderIdsInOrder.length; i++) {
+      batch.update(
+        'bookmark_folders',
+        {'sort_order': i},
+        where: 'id = ?',
+        whereArgs: [folderIdsInOrder[i]],
+      );
+    }
+    await batch.commit(noResult: true);
+  }
+
+  Future<int> deleteBookmarkFolder(String folderId) async {
+    final db = await database;
+    await db.delete(
+      'pitch_bookmarks',
+      where: 'folder_id = ?',
+      whereArgs: [folderId],
+    );
+    return await db.delete(
+      'bookmark_folders',
+      where: 'id = ?',
+      whereArgs: [folderId],
+    );
+  }
+
+  Future<List<PitchBookmark>> getBookmarksForFolder(String folderId) async {
+    final db = await database;
+    final rows = await db.query(
+      'pitch_bookmarks',
+      where: 'folder_id = ?',
+      whereArgs: [folderId],
+      orderBy: 'saved_at DESC',
+    );
+    return rows.map((r) => PitchBookmark.fromMap(r)).toList();
+  }
+
+  Future<List<PitchBookmark>> getAllBookmarks() async {
+    final db = await database;
+    final rows = await db.query('pitch_bookmarks', orderBy: 'saved_at DESC');
+    return rows.map((r) => PitchBookmark.fromMap(r)).toList();
+  }
+
+  Future<int> savePitchToFolder(PitchBookmark bookmark) async {
+    final db = await database;
+    await db.delete(
+      'pitch_bookmarks',
+      where: 'folder_id = ? AND pitch_id = ?',
+      whereArgs: [bookmark.folderId, bookmark.pitchId],
+    );
+    return await db.insert('pitch_bookmarks', bookmark.toMap());
+  }
+
+  Future<int> removePitchFromFolder(String pitchId, String folderId) async {
+    final db = await database;
+    return await db.delete(
+      'pitch_bookmarks',
+      where: 'pitch_id = ? AND folder_id = ?',
+      whereArgs: [pitchId, folderId],
+    );
+  }
+
+  Future<bool> isPitchBookmarkedInFolder(
+    String pitchId,
+    String folderId,
+  ) async {
+    final db = await database;
+    final rows = await db.query(
+      'pitch_bookmarks',
+      where: 'pitch_id = ? AND folder_id = ?',
+      whereArgs: [pitchId, folderId],
+      limit: 1,
+    );
+    return rows.isNotEmpty;
+  }
+
+  Future<List<String>> getFoldersForPitch(String pitchId) async {
+    final db = await database;
+    final rows = await db.query(
+      'pitch_bookmarks',
+      columns: ['folder_id'],
+      where: 'pitch_id = ?',
+      whereArgs: [pitchId],
+    );
+    return rows.map((r) => r['folder_id'] as String).toList();
+  }
+
   Future<void> resetDatabase() async {
     final db = await database;
     await db.delete('video_pitches');
@@ -623,6 +857,8 @@ class AppDatabase {
     await db.delete('portfolio_items');
     await db.delete('escrow_disputes');
     await db.delete('talent_bookings');
+    await db.delete('bookmark_folders');
+    await db.delete('pitch_bookmarks');
     await _seedInitialData(db);
   }
 }

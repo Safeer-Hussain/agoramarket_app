@@ -174,7 +174,7 @@
 - Build custom canvas month/week calendar view with touch selection and conflict detection.
 - Deliverable: Offline appointment booking engine with instant message thread notification.
 
-### [ ] Sprint 29: Video Pitch Bookmark Collections & Tagging Taxonomy
+### [x] Sprint 29: Video Pitch Bookmark Collections & Tagging Taxonomy
 - Add custom collection folders in `VideoFeedProvider` (e.g., Mobile Architects, Fintech Experts, Backend Leads).
 - Build collection management drawer with drag-and-drop ordering and tag filtering.
 - Deliverable: Multi-folder bookmarking system persisted to SQLite relational tables.

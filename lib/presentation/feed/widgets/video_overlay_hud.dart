@@ -8,6 +8,8 @@ import '../video_feed_provider.dart';
 import 'comment_sheet.dart';
 import 'share_sheet.dart';
 import 'hire_modal.dart';
+import 'bookmark_collections_sheet.dart';
+import 'save_to_folder_modal.dart';
 
 class VideoOverlayHud extends StatelessWidget {
   final VideoPitch pitch;
@@ -263,9 +265,26 @@ class VideoOverlayHud extends StatelessWidget {
                     : colorScheme.onSurface,
                 label: pitch.bookmarksCount.toString(),
                 semanticLabel: pitch.isBookmarked
-                    ? 'Remove bookmark. Current bookmarks: ${pitch.bookmarksCount}'
-                    : 'Bookmark pitch. Current bookmarks: ${pitch.bookmarksCount}',
-                onTap: () => feedProvider.toggleBookmark(pitch.id),
+                    ? 'Manage bookmark and collections. Current bookmarks: ${pitch.bookmarksCount}'
+                    : 'Bookmark pitch to collection. Current bookmarks: ${pitch.bookmarksCount}',
+                onTap: () {
+                  if (!pitch.isBookmarked) {
+                    SaveToFolderModal.show(context, pitch);
+                  } else {
+                    feedProvider.toggleBookmark(pitch.id);
+                  }
+                },
+                onLongPress: () => SaveToFolderModal.show(context, pitch),
+              ),
+              const SizedBox(height: 14),
+
+              // Collections Button
+              _ActionButton(
+                icon: Icons.folder_special_outlined,
+                iconColor: colorScheme.onSurface,
+                label: 'Folders',
+                semanticLabel: 'View bookmark collections and taxonomy folders',
+                onTap: () => BookmarkCollectionsSheet.show(context),
               ),
               const SizedBox(height: 14),
 
@@ -351,6 +370,7 @@ class _ActionButton extends StatelessWidget {
   final Color iconColor;
   final String label;
   final VoidCallback onTap;
+  final VoidCallback? onLongPress;
   final String? semanticLabel;
 
   const _ActionButton({
@@ -358,6 +378,7 @@ class _ActionButton extends StatelessWidget {
     required this.iconColor,
     required this.label,
     required this.onTap,
+    this.onLongPress,
     this.semanticLabel,
   });
 
@@ -370,6 +391,7 @@ class _ActionButton extends StatelessWidget {
       label: semanticLabel ?? label,
       child: InkWell(
         onTap: onTap,
+        onLongPress: onLongPress,
         borderRadius: BorderRadius.circular(24),
         child: Container(
           constraints: const BoxConstraints(minWidth: 48, minHeight: 48),
