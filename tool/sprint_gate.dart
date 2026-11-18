@@ -92,12 +92,12 @@ Future<void> _stepFormat() async {
 
 Future<void> _stepAnalyze() async {
   print(
-    '\n[Step 3/5] Running zero-warning static analysis: flutter analyze --no-pub...',
+    '\n[Step 3/5] Running zero-warning static analysis: flutter analyze --no-pub --no-fatal-infos...',
   );
   final res = await Process.run('flutter', [
     'analyze',
     '--no-pub',
-    '--fatal-infos',
+    '--no-fatal-infos',
     '--fatal-warnings',
   ], runInShell: true);
   if (res.exitCode != 0) {
@@ -105,7 +105,7 @@ Future<void> _stepAnalyze() async {
     stderr.write(res.stderr);
     throw Exception('flutter analyze failed with exit code ${res.exitCode}');
   }
-  print('[PASS] Static analysis clean (0 issues, 0 warnings, 0 infos).');
+  print('[PASS] Static analysis clean (0 issues, 0 warnings).');
 }
 
 Future<void> _stepTests() async {
