@@ -3,6 +3,7 @@ import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:provider/provider.dart';
 
+import '../../domain/entities/tech_corridor.dart';
 import '../../domain/entities/video_pitch.dart';
 import '../navigation/adaptive_scaffold.dart';
 import 'map_filter_provider.dart';
@@ -67,7 +68,7 @@ class _TalentMapViewState extends State<TalentMapView> {
                 foregroundColor: colorScheme.onPrimary,
                 onPressed: () {
                   mapProvider.recenterToTechHub();
-                  _mapController.move(mapProvider.userLatLng, 13.5);
+                  _mapController.move(mapProvider.userLatLng, 13.0);
                 },
                 child: const Icon(Icons.my_location_rounded),
               ),
@@ -91,7 +92,8 @@ class _TalentMapViewState extends State<TalentMapView> {
     return Stack(
       children: [
         _buildMapWidget(mapProvider),
-        _buildSearchBarOverlay(context, mapProvider),
+        _buildSearchBarOverlay(context, mapProvider, isLandscape: false),
+        _buildCorridorChipsOverlay(context, mapProvider, isLandscape: false),
         if (selected != null)
           Positioned(
             left: 0,
@@ -121,7 +123,12 @@ class _TalentMapViewState extends State<TalentMapView> {
           child: Stack(
             children: [
               _buildMapWidget(mapProvider),
-              _buildSearchBarOverlay(context, mapProvider),
+              _buildSearchBarOverlay(context, mapProvider, isLandscape: true),
+              _buildCorridorChipsOverlay(
+                context,
+                mapProvider,
+                isLandscape: true,
+              ),
             ],
           ),
         ),
@@ -161,7 +168,9 @@ class _TalentMapViewState extends State<TalentMapView> {
                         const SizedBox(width: 8),
                         Expanded(
                           child: Text(
-                            'Nearby Listings (${mapProvider.filteredPitches.length})',
+                            mapProvider.selectedCorridor != null
+                                ? '${mapProvider.selectedCorridor!.name} (${mapProvider.filteredPitches.length})'
+                                : 'Nearby Listings (${mapProvider.filteredPitches.length})',
                             style: TextStyle(
                               fontSize: 12,
                               fontWeight: FontWeight.w700,
@@ -193,7 +202,7 @@ class _TalentMapViewState extends State<TalentMapView> {
 
                   // Other nearby listings list
                   Text(
-                    'All Nearby Matches',
+                    'All Corridor Matches',
                     style: TextStyle(
                       fontSize: 12,
                       fontWeight: FontWeight.w700,
@@ -258,61 +267,136 @@ class _TalentMapViewState extends State<TalentMapView> {
       ),
     ];
 
-    // Add listing markers
-    for (final pitch in mapProvider.filteredPitches) {
-      final isSel = selected?.id == pitch.id;
-      final Color pinColor = pitch.category == 'Freelancer'
-          ? colorScheme.secondary
-          : (pitch.category == 'Job'
-                ? colorScheme.primary
-                : colorScheme.tertiary);
-
-      markers.add(
-        Marker(
-          point: LatLng(pitch.latitude, pitch.longitude),
-          width: isSel ? 52 : 42,
-          height: isSel ? 52 : 42,
-          child: Semantics(
-            button: true,
-            label:
-                '${pitch.creatorName}, ${pitch.role}, \$${pitch.hourlyRate.toStringAsFixed(0)} per hour in ${pitch.locationName}',
-            child: GestureDetector(
-              onTap: () {
-                mapProvider.selectPitch(pitch);
-                _mapController.move(
-                  LatLng(pitch.latitude, pitch.longitude),
-                  14.0,
-                );
-              },
-              child: AnimatedContainer(
-                duration: const Duration(milliseconds: 250),
-                decoration: BoxDecoration(
-                  color: isSel ? pinColor : colorScheme.surfaceContainerHighest,
-                  shape: BoxShape.circle,
-                  border: Border.all(
-                    color: isSel ? colorScheme.onPrimary : pinColor,
-                    width: isSel ? 2.5 : 2,
+    // Clustered or individual markers from GeospatialClusterer
+    for (final cluster in mapProvider.clusters) {
+      if (cluster.isCluster) {
+        // Render clustered badge marker
+        markers.add(
+          Marker(
+            point: cluster.center,
+            width: 58,
+            height: 58,
+            child: Semantics(
+              button: true,
+              label:
+                  '${cluster.count} talent in ${cluster.corridor?.name ?? 'Cluster'}',
+              child: GestureDetector(
+                onTap: () {
+                  mapProvider.selectPitch(cluster.primaryPitch);
+                  _mapController.move(cluster.center, 14.5);
+                  mapProvider.setZoom(14.5);
+                },
+                child: AnimatedContainer(
+                  duration: const Duration(milliseconds: 250),
+                  decoration: BoxDecoration(
+                    color: colorScheme.primary,
+                    shape: BoxShape.circle,
+                    border: Border.all(color: colorScheme.surface, width: 2.5),
+                    boxShadow: [
+                      BoxShadow(
+                        color: colorScheme.primary.withValues(alpha: 0.45),
+                        blurRadius: 10,
+                        offset: const Offset(0, 3),
+                      ),
+                    ],
                   ),
-                  boxShadow: [
-                    BoxShadow(
-                      color: colorScheme.shadow.withValues(alpha: 0.4),
-                      blurRadius: isSel ? 12 : 6,
-                      offset: const Offset(0, 2),
-                    ),
-                  ],
-                ),
-                child: Center(
-                  child: CircleAvatar(
-                    radius: isSel ? 18 : 14,
-                    backgroundColor: colorScheme.surfaceContainer,
-                    backgroundImage: AssetImage(pitch.creatorAvatar),
+                  child: Stack(
+                    alignment: Alignment.center,
+                    children: [
+                      Icon(
+                        Icons.hub_rounded,
+                        size: 20,
+                        color: colorScheme.onPrimary.withValues(alpha: 0.35),
+                      ),
+                      Positioned(
+                        top: 7,
+                        child: Text(
+                          '${cluster.count}',
+                          style: TextStyle(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w900,
+                            color: colorScheme.onPrimary,
+                          ),
+                        ),
+                      ),
+                      Positioned(
+                        bottom: 8,
+                        child: Text(
+                          'CORRIDOR',
+                          style: TextStyle(
+                            fontSize: 7,
+                            fontWeight: FontWeight.w700,
+                            letterSpacing: 0.5,
+                            color: colorScheme.onPrimary.withValues(alpha: 0.9),
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
                 ),
               ),
             ),
           ),
-        ),
-      );
+        );
+      } else {
+        // Render individual talent marker
+        final pitch = cluster.primaryPitch;
+        final isSel = selected?.id == pitch.id;
+        final Color pinColor = pitch.category == 'Freelancer'
+            ? colorScheme.secondary
+            : (pitch.category == 'Job'
+                  ? colorScheme.primary
+                  : colorScheme.tertiary);
+
+        markers.add(
+          Marker(
+            point: LatLng(pitch.latitude, pitch.longitude),
+            width: isSel ? 52 : 42,
+            height: isSel ? 52 : 42,
+            child: Semantics(
+              button: true,
+              label:
+                  '${pitch.creatorName}, ${pitch.role}, \$${pitch.hourlyRate.toStringAsFixed(0)} per hour in ${pitch.locationName}',
+              child: GestureDetector(
+                onTap: () {
+                  mapProvider.selectPitch(pitch);
+                  _mapController.move(
+                    LatLng(pitch.latitude, pitch.longitude),
+                    14.0,
+                  );
+                },
+                child: AnimatedContainer(
+                  duration: const Duration(milliseconds: 250),
+                  decoration: BoxDecoration(
+                    color: isSel
+                        ? pinColor
+                        : colorScheme.surfaceContainerHighest,
+                    shape: BoxShape.circle,
+                    border: Border.all(
+                      color: isSel ? colorScheme.onPrimary : pinColor,
+                      width: isSel ? 2.5 : 2,
+                    ),
+                    boxShadow: [
+                      BoxShadow(
+                        color: colorScheme.shadow.withValues(alpha: 0.4),
+                        blurRadius: isSel ? 12 : 6,
+                        offset: const Offset(0, 2),
+                      ),
+                    ],
+                  ),
+                  child: Center(
+                    child: CircleAvatar(
+                      radius: isSel ? 18 : 14,
+                      backgroundColor: colorScheme.surfaceContainer,
+                      backgroundImage: AssetImage(pitch.creatorAvatar),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        );
+      }
     }
 
     // Polyline route if enabled
@@ -330,19 +414,53 @@ class _TalentMapViewState extends State<TalentMapView> {
       );
     }
 
+    // Geofence circles for tech corridors
+    final circles = TechCorridor.corridors.map((corridor) {
+      final isSelected = mapProvider.selectedCorridor?.id == corridor.id;
+      final hasActiveSelection = mapProvider.selectedCorridor != null;
+
+      if (hasActiveSelection && !isSelected) {
+        return CircleMarker(
+          point: corridor.center,
+          radius: corridor.radiusMeters,
+          useRadiusInMeter: true,
+          color: colorScheme.surfaceContainerHighest.withValues(alpha: 0.05),
+          borderColor: colorScheme.outlineVariant.withValues(alpha: 0.2),
+          borderStrokeWidth: 1.0,
+        );
+      }
+
+      return CircleMarker(
+        point: corridor.center,
+        radius: corridor.radiusMeters,
+        useRadiusInMeter: true,
+        color: isSelected
+            ? colorScheme.primary.withValues(alpha: 0.16)
+            : colorScheme.secondary.withValues(alpha: 0.08),
+        borderColor: isSelected
+            ? colorScheme.primary.withValues(alpha: 0.8)
+            : colorScheme.secondary.withValues(alpha: 0.4),
+        borderStrokeWidth: isSelected ? 2.5 : 1.5,
+      );
+    }).toList();
+
     return FlutterMap(
       mapController: _mapController,
       options: MapOptions(
         initialCenter: mapProvider.userLatLng,
-        initialZoom: 13.0,
+        initialZoom: mapProvider.currentZoom,
         minZoom: 4.0,
         maxZoom: 18.0,
+        onPositionChanged: (pos, hasGesture) {
+          mapProvider.setZoom(pos.zoom);
+        },
       ),
       children: [
         TileLayer(
           urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
           userAgentPackageName: 'com.agoramarket.app',
         ),
+        CircleLayer(circles: circles),
         if (polylines.isNotEmpty) PolylineLayer(polylines: polylines),
         MarkerLayer(markers: markers),
       ],
@@ -351,12 +469,13 @@ class _TalentMapViewState extends State<TalentMapView> {
 
   Widget _buildSearchBarOverlay(
     BuildContext context,
-    MapFilterProvider mapProvider,
-  ) {
+    MapFilterProvider mapProvider, {
+    required bool isLandscape,
+  }) {
     final colorScheme = Theme.of(context).colorScheme;
 
     return Positioned(
-      top: 48,
+      top: isLandscape ? 8 : 48,
       left: 16,
       right: 16,
       child: Material(
@@ -429,6 +548,108 @@ class _TalentMapViewState extends State<TalentMapView> {
                 onPressed: () => MapFilterSheet.show(context),
               ),
             ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildCorridorChipsOverlay(
+    BuildContext context,
+    MapFilterProvider mapProvider, {
+    required bool isLandscape,
+  }) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final selectedCorridor = mapProvider.selectedCorridor;
+
+    return Positioned(
+      top: isLandscape ? 56 : 106,
+      left: 16,
+      right: 16,
+      height: 34,
+      child: SingleChildScrollView(
+        scrollDirection: Axis.horizontal,
+        physics: const BouncingScrollPhysics(),
+        child: Row(
+          children: [
+            _buildCorridorChip(
+              label: 'All Corridors',
+              isSelected: selectedCorridor == null,
+              colorScheme: colorScheme,
+              onTap: () {
+                mapProvider.selectCorridor(null);
+                _mapController.move(mapProvider.userLatLng, 13.0);
+                mapProvider.setZoom(13.0);
+              },
+            ),
+            const SizedBox(width: 8),
+            ...TechCorridor.corridors.map((corridor) {
+              final isSelected = selectedCorridor?.id == corridor.id;
+              return Padding(
+                padding: const EdgeInsets.only(right: 8),
+                child: _buildCorridorChip(
+                  label: corridor.name
+                      .replaceAll(' Tech Hub', '')
+                      .replaceAll(' Innovation Center', '')
+                      .replaceAll(' Software Technology Park', '')
+                      .replaceAll(' (Johar Town)', ''),
+                  isSelected: isSelected,
+                  colorScheme: colorScheme,
+                  onTap: () {
+                    mapProvider.selectCorridor(corridor);
+                    _mapController.move(corridor.center, 14.2);
+                    mapProvider.setZoom(14.2);
+                  },
+                ),
+              );
+            }),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildCorridorChip({
+    required String label,
+    required bool isSelected,
+    required ColorScheme colorScheme,
+    required VoidCallback onTap,
+  }) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(18),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 200),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+        decoration: BoxDecoration(
+          color: isSelected
+              ? colorScheme.primary
+              : colorScheme.surfaceContainerHighest.withValues(alpha: 0.92),
+          borderRadius: BorderRadius.circular(18),
+          border: Border.all(
+            color: isSelected
+                ? colorScheme.primary
+                : colorScheme.outlineVariant,
+            width: isSelected ? 1.5 : 1,
+          ),
+          boxShadow: [
+            BoxShadow(
+              color: colorScheme.shadow.withValues(alpha: 0.15),
+              blurRadius: 4,
+              offset: const Offset(0, 1),
+            ),
+          ],
+        ),
+        child: Center(
+          child: Text(
+            label,
+            style: TextStyle(
+              fontSize: 11,
+              fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
+              color: isSelected
+                  ? colorScheme.onPrimary
+                  : colorScheme.onSurfaceVariant,
+            ),
           ),
         ),
       ),

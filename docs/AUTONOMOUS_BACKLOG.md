@@ -179,7 +179,7 @@
 - Build collection management drawer with drag-and-drop ordering and tag filtering.
 - Deliverable: Multi-folder bookmarking system persisted to SQLite relational tables.
 
-### [ ] Sprint 30: Advanced Spatial Geofencing & Tech Corridor Clustering
+### [x] Sprint 30: Advanced Spatial Geofencing & Tech Corridor Clustering
 - Enhance `TalentMapView` with cluster markers when zoomed out to prevent canvas clutter.
 - Define named tech corridors (Lahore IT Park, Gulberg Main Blvd, DHA Phase 5 Commercial, Arfa Tower).
 - Deliverable: High-performance geospatial clustering algorithm running on 60 FPS map canvas.

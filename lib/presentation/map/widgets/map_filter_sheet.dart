@@ -199,6 +199,13 @@ class MapFilterSheet extends StatelessWidget {
                   onTap: () =>
                       mapProvider.recenterToTechHub(lat: 31.4759, lng: 74.3414),
                 ),
+                _HubPresetButton(
+                  title: 'Johar Town IT Park',
+                  lat: 31.4697,
+                  lng: 74.2728,
+                  onTap: () =>
+                      mapProvider.recenterToTechHub(lat: 31.4697, lng: 74.2728),
+                ),
               ],
             ),
           ],

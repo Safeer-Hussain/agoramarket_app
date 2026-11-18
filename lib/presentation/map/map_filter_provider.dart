@@ -2,6 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:latlong2/latlong.dart';
 
 import '../../core/constants/app_constants.dart';
+import '../../core/utils/geospatial_clusterer.dart';
+import '../../domain/entities/spatial_cluster.dart';
+import '../../domain/entities/tech_corridor.dart';
 import '../../domain/entities/video_pitch.dart';
 import '../../domain/repositories/marketplace_repository.dart';
 
@@ -19,6 +22,10 @@ class MapFilterProvider extends ChangeNotifier {
   String _selectedCategory = 'All';
   double _radiusKm = 25.0;
   double _maxHourlyRate = 150.0;
+  TechCorridor? _selectedCorridor;
+
+  // Viewport zoom
+  double _currentZoom = 13.0;
 
   // Location center
   double _userLat = AppConstants.defaultLat;
@@ -54,6 +61,16 @@ class MapFilterProvider extends ChangeNotifier {
   double get userLng => _userLng;
   bool get showRoute => _showRoute;
   LatLng get userLatLng => LatLng(_userLat, _userLng);
+  double get currentZoom => _currentZoom;
+  TechCorridor? get selectedCorridor => _selectedCorridor;
+  List<TechCorridor> get availableCorridors => TechCorridor.corridors;
+
+  List<SpatialCluster> get clusters => GeospatialClusterer.clusterPitches(
+    pitches: _filteredPitches,
+    zoom: _currentZoom,
+    corridors: availableCorridors,
+    selectedCorridor: _selectedCorridor,
+  );
 
   Future<void> loadMapData() async {
     _isLoading = true;
@@ -69,6 +86,19 @@ class MapFilterProvider extends ChangeNotifier {
       _isLoading = false;
       notifyListeners();
     }
+  }
+
+  void setZoom(double zoom) {
+    if ((_currentZoom - zoom).abs() >= 0.1) {
+      _currentZoom = zoom;
+      notifyListeners();
+    }
+  }
+
+  void selectCorridor(TechCorridor? corridor) {
+    _selectedCorridor = corridor;
+    _applyFilters();
+    notifyListeners();
   }
 
   void setSearchQuery(String q) {
@@ -109,6 +139,7 @@ class MapFilterProvider extends ChangeNotifier {
   void recenterToTechHub({double? lat, double? lng}) {
     _userLat = lat ?? AppConstants.defaultLat;
     _userLng = lng ?? AppConstants.defaultLng;
+    _selectedCorridor = null;
     _showRoute = false;
     _applyFilters();
     notifyListeners();
@@ -153,6 +184,13 @@ class MapFilterProvider extends ChangeNotifier {
       final dist = calculateDistanceTo(pitch);
       if (dist > _radiusKm) {
         return false;
+      }
+
+      if (_selectedCorridor != null) {
+        final point = LatLng(pitch.latitude, pitch.longitude);
+        if (!_selectedCorridor!.contains(point)) {
+          return false;
+        }
       }
 
       return true;
